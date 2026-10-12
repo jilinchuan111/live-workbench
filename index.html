@@ -86,6 +86,17 @@ input[type=date]{height:34px;border:1px solid var(--border);border-radius:6px;pa
 .tag.warn{background:var(--orange-bg);color:var(--orange)}
 .tag.bad{background:var(--red-bg);color:var(--red)}
 
+/* KPI 浮空卡片网格（IP 直播页：长串数字拆分为独立小格） */
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin:6px 0 2px}
+.kpis.cols-2{grid-template-columns:repeat(2,1fr)}
+.kpis.cols-3{grid-template-columns:repeat(3,1fr)}
+.kpis.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi-float{border:1px solid var(--border);background:var(--surface);box-shadow:0 6px 16px rgba(31,35,41,.10),0 2px 4px rgba(31,35,41,.06);transition:box-shadow .25s ease,transform .25s ease}
+.kpi-float:hover{box-shadow:0 14px 30px rgba(31,35,41,.18),0 4px 8px rgba(31,35,41,.10);transform:translateY(-4px)}
+.kpi-float .k-val{font-size:22px}
+.kpi-float .k-name{margin-bottom:8px}
+
 /* 分组卡片 */
 .kpi-group{margin-bottom:14px}
 .kpi-group .g-title{font-size:13px;font-weight:600;color:var(--text);margin:14px 0 10px;padding-left:8px;border-left:3px solid var(--primary)}
@@ -463,11 +474,9 @@ input[type="date"].select::-webkit-calendar-picker-indicator{cursor:pointer;opac
       </div>
       <div id="iplive-kpi"></div>
 
-      <div class="section-title"><span class="bar"></span><span>每日进房 / 曝光趋势</span><span class="hint" id="iplive-trend-hint"></span></div>
+      <div class="section-title"><span class="bar"></span><span>每日直播指标趋势</span><span class="hint" id="iplive-trend-hint"></span></div>
       <div class="card"><div class="chart tall" id="ch-iplive-trend"></div></div>
-
-      <div class="section-title"><span class="bar"></span>每日直播明细<span class="hint">日期 · 曝光 · 进房 · 进房率(进房÷曝光) · 停留(分) · 关注 · 在线区间 · 评论 · 粉丝团</span></div>
-      <div class="card" id="iplive-daily"></div>
+      <div class="hint" style="margin:-4px 2px 14px;color:var(--text3)">指标已汇总至同一图表：曝光 / 进房 / 关注 / 评论 / 粉丝团（左轴·人数）与 进房率% / 停留(分)（右轴·比率）。点击图例切换显隐，拖动滑块缩放时间。</div>
 
       <div class="section-title"><span class="bar"></span>数据质量提示<span class="hint">源表口径与修正说明</span></div>
       <div class="summary-card" id="iplive-notes"></div>
@@ -43448,16 +43457,32 @@ function renderIpLive() {
     if (notesEl) notesEl.innerHTML = '';
     return;
   }
-  const rows = ip.people[state.ipLivePerson].rows || [];
+  const rowsAll = ip.people[state.ipLivePerson].rows || [];
+  // 时间筛选（与全局时间筛选联动：按月 / 按日）—— 修复「切换时间后数据不变化」缺陷
+  const inRange = r => state.mode === 'day'
+    ? (r.date >= state.dStart && r.date <= state.dEnd)
+    : (r.date.slice(0, 7) >= state.mStart && r.date.slice(0, 7) <= state.mEnd);
+  const rows = rowsAll.filter(inRange);
   if (notesEl) notesEl.innerHTML = (ip.notes || []).map(n => `<p>• ${n}</p>`).join('');
+
+  if (!rows.length) {
+    const rng = state.mode === 'day' ? (state.dStart + ' ~ ' + state.dEnd) : (state.mStart + ' ~ ' + state.mEnd);
+    if (kpiEl) kpiEl.innerHTML = '<div class="pending-box"><div class="big">当前时间范围无数据</div><div>所选区间（' + rng + '）内 ' + state.ipLivePerson + ' 暂无直播记录。请放宽时间筛选或切换主播。</div></div>';
+    if (dailyEl) dailyEl.innerHTML = '';
+    const th0 = document.getElementById('iplive-trend-hint');
+    if (th0) th0.innerText = state.ipLivePerson + ' · 当前区间 0 场';
+    return;
+  }
 
   const sum = k => rows.reduce((a, r) => a + (r[k] || 0), 0);
   const totExpo = sum('expo'), totEnter = sum('enter');
   const avgRate = totExpo ? totEnter / totExpo * 100 : 0;
-  const avgStay = rows.length ? rows.reduce((a, r) => a + (r.stay || 0), 0) / rows.length : 0;
+  const avgStay = rows.reduce((a, r) => a + (r.stay || 0), 0) / rows.length;
+  const dMin = rows.reduce((a, r) => r.date < a ? r.date : a, rows[0].date);
+  const dMax = rows.reduce((a, r) => r.date > a ? r.date : a, rows[0].date);
   const kpis = [
     ['直播场次', fmtNum(rows.length)],
-    ['数据区间', rows.length ? (rows[0].date + ' ~ ' + rows[rows.length - 1].date) : '—'],
+    ['数据区间', dMin + ' ~ ' + dMax],
     ['总曝光', fmtNum(totExpo)],
     ['总进房', fmtNum(totEnter)],
     ['平均进房率', avgRate.toFixed(2) + '%'],
@@ -43466,36 +43491,37 @@ function renderIpLive() {
     ['总评论', fmtNum(sum('comments'))],
     ['总粉丝团', fmtNum(sum('fans'))],
   ];
-  if (kpiEl) kpiEl.innerHTML = '<div class="kpis">' + kpis.map(k => `<div class="kpi"><div class="v">${k[1]}</div><div class="l">${k[0]}</div></div>`).join('') + '</div>';
+  if (kpiEl) kpiEl.innerHTML = '<div class="kpis">' + kpis.map(k => `<div class="kpi kpi-float"><div class="k-val">${k[1]}</div><div class="k-name">${k[0]}</div></div>`).join('') + '</div>';
 
-  // 趋势：曝光（左轴）+ 进房（右轴）
+  // 统一折线图：全部每日指标汇总到同一张图（左轴=人数类，右轴=比率/分）
   const dates = rows.map(r => r.date);
-  const expo = rows.map(r => r.expo);
-  const enter = rows.map(r => r.enter);
   const rotate = dates.length > 60 ? 45 : 0;
+  const mk = (name, key, axis, color) => ({ name, type: 'line', data: rows.map(r => r[key]), yAxisIndex: axis, itemStyle: { color }, lineStyle: { color } });
   renderChart('ch-iplive-trend', {
     tooltip: { trigger: 'axis' },
-    legend: { top: 0, textStyle: { color: '#646a73' } },
-    grid: { left: 10, right: 64, top: 34, bottom: 56, containLabel: true },
+    legend: { type: 'scroll', top: 0, textStyle: { color: '#646a73' } },
+    grid: { left: 10, right: 72, top: 42, bottom: 56, containLabel: true },
     xAxis: { type: 'category', data: dates, ...AXIS, axisLabel: { color: '#646a73', rotate: rotate, fontSize: 10 } },
     yAxis: [
-      { type: 'value', name: '曝光', ...AXIS },
-      { type: 'value', name: '进房', ...AXIS }
+      { type: 'value', name: '人数', ...AXIS },
+      { type: 'value', name: '比率/分', ...AXIS }
     ],
     dataZoom: [{ type: 'inside' }, { type: 'slider', height: 16, bottom: 18 }],
     series: [
-      { name: '曝光', type: 'line', data: expo, yAxisIndex: 0, areaStyle: { opacity: 0.06 } },
-      { name: '进房', type: 'line', data: enter, yAxisIndex: 1, areaStyle: { opacity: 0.06 } }
+      mk('曝光', 'expo', 0, '#2f6bff'),
+      mk('进房', 'enter', 0, '#ff5a5a'),
+      mk('关注', 'follow', 0, '#16a34a'),
+      mk('评论', 'comments', 0, '#f59e0b'),
+      mk('粉丝团', 'fans', 0, '#8b5cf6'),
+      mk('进房率%', 'enterRate', 1, '#06b6d4'),
+      mk('停留(分)', 'stay', 1, '#ec4899'),
     ]
   });
   const th = document.getElementById('iplive-trend-hint');
-  if (th) th.innerText = state.ipLivePerson + ' · 共 ' + rows.length + ' 场';
+  if (th) th.innerText = state.ipLivePerson + ' · 当前区间 ' + rows.length + ' 场（' + dMin + ' ~ ' + dMax + '）';
 
-  // 每日明细（日期倒序）
-  const sorted = rows.slice().sort((a, b) => a.date < b.date ? 1 : -1);
-  const head = ['日期', '曝光', '进房', '进房率', '停留(分)', '关注', '在线区间', '评论', '粉丝团'];
-  const body = sorted.map(r => `<tr><td>${r.date}</td><td>${fmtNum(r.expo)}</td><td>${fmtNum(r.enter)}</td><td>${r.enterRate.toFixed(2)}%</td><td>${d2s(r.stay)}</td><td>${fmtNum(r.follow)}</td><td>${r.onlineRange || '—'}</td><td>${fmtNum(r.comments)}</td><td>${fmtNum(r.fans)}</td></tr>`).join('');
-  if (dailyEl) dailyEl.innerHTML = `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+  // 原逐日明细表已合并进上方折线图（可点击图例切换指标、拖动滑块缩放），下方不再单列
+  if (dailyEl) dailyEl.innerHTML = '';
 }
 
 /* ============ 重绘 ============ */

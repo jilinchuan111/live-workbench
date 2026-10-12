@@ -97,6 +97,13 @@ input[type=date]{height:34px;border:1px solid var(--border);border-radius:6px;pa
 .kpi-float .k-val{font-size:22px}
 .kpi-float .k-name{margin-bottom:8px}
 
+/* 最新值胶囊（替代图表内末端数字标签，避免最右侧数值互相遮挡） */
+.latest-strip{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.latest-chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 10px;box-shadow:0 2px 6px rgba(31,35,41,.07);font-size:12px;color:var(--text3);white-space:nowrap}
+.latest-chip .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.latest-chip .lv{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.latest-chip.is-label{background:var(--elevated);color:var(--text3);font-weight:600}
+
 /* 分组卡片 */
 .kpi-group{margin-bottom:14px}
 .kpi-group .g-title{font-size:13px;font-weight:600;color:var(--text);margin:14px 0 10px;padding-left:8px;border-left:3px solid var(--primary)}
@@ -475,8 +482,11 @@ input[type="date"].select::-webkit-calendar-picker-indicator{cursor:pointer;opac
       <div id="iplive-kpi"></div>
 
       <div class="section-title"><span class="bar"></span><span>每日直播指标趋势</span><span class="hint" id="iplive-trend-hint"></span></div>
-      <div class="card"><div class="chart tall" id="ch-iplive-trend"></div></div>
-      <div class="hint" style="margin:-4px 2px 14px;color:var(--text3)">指标已汇总至同一图表：曝光 / 进房 / 关注 / 评论 / 粉丝团（左轴·人数）与 进房率% / 停留(分)（右轴·比率）。点击图例切换显隐，拖动滑块缩放时间。</div>
+      <div class="card">
+        <div class="latest-strip" id="iplive-latest"></div>
+        <div class="chart tall" id="ch-iplive-trend"></div>
+      </div>
+      <div class="hint" style="margin:-4px 2px 14px;color:var(--text3)">指标已汇总至同一图表：曝光 / 进房 / 关注 / 评论 / 粉丝团（左轴·人数）与 进房率% / 停留(分)（右轴·比率）。点击图例切换显隐；上方胶囊为所选区间最新一天的数值，时间范围由顶部时间筛选控制，切换后图表与胶囊同步自动重绘。</div>
 
       <div class="section-title"><span class="bar"></span>数据质量提示<span class="hint">源表口径与修正说明</span></div>
       <div class="summary-card" id="iplive-notes"></div>
@@ -43494,33 +43504,45 @@ function renderIpLive() {
   if (kpiEl) kpiEl.innerHTML = '<div class="kpis">' + kpis.map(k => `<div class="kpi kpi-float"><div class="k-val">${k[1]}</div><div class="k-name">${k[0]}</div></div>`).join('') + '</div>';
 
   // 统一折线图：全部每日指标汇总到同一张图（左轴=人数类，右轴=比率/分）
+  // 时间范围完全由顶部时间筛选控制（选中即重绘），图内不再提供缩放滑块。
+  // 末端数字标签已关闭：原最右侧 7 个数值挤在一起互相遮挡，改由图表上方「最新值」胶囊独立小格展示。
   const dates = rows.map(r => r.date);
   const rotate = dates.length > 60 ? 45 : 0;
-  const mk = (name, key, axis, color) => ({ name, type: 'line', data: rows.map(r => r[key]), yAxisIndex: axis, itemStyle: { color }, lineStyle: { color } });
+  const METRICS = [
+    ['曝光', 'expo', 0, '#2f6bff'], ['进房', 'enter', 0, '#ff5a5a'],
+    ['关注', 'follow', 0, '#16a34a'], ['评论', 'comments', 0, '#f59e0b'],
+    ['粉丝团', 'fans', 0, '#8b5cf6'], ['进房率%', 'enterRate', 1, '#06b6d4'],
+    ['停留(分)', 'stay', 1, '#ec4899']
+  ];
+  const mk = ([name, key, axis, color]) => ({
+    name, type: 'line', data: rows.map(r => r[key]), yAxisIndex: axis,
+    itemStyle: { color }, lineStyle: { color },
+    endLabel: { show: false }
+  });
   renderChart('ch-iplive-trend', {
     tooltip: { trigger: 'axis' },
     legend: { type: 'scroll', top: 0, textStyle: { color: '#646a73' } },
-    grid: { left: 10, right: 72, top: 42, bottom: 56, containLabel: true },
+    grid: { left: 10, right: 64, top: 42, bottom: 34, containLabel: true },
     xAxis: { type: 'category', data: dates, ...AXIS, axisLabel: { color: '#646a73', rotate: rotate, fontSize: 10 } },
     yAxis: [
       { type: 'value', name: '人数', ...AXIS },
       { type: 'value', name: '比率/分', ...AXIS }
     ],
-    dataZoom: [{ type: 'inside' }, { type: 'slider', height: 16, bottom: 18 }],
-    series: [
-      mk('曝光', 'expo', 0, '#2f6bff'),
-      mk('进房', 'enter', 0, '#ff5a5a'),
-      mk('关注', 'follow', 0, '#16a34a'),
-      mk('评论', 'comments', 0, '#f59e0b'),
-      mk('粉丝团', 'fans', 0, '#8b5cf6'),
-      mk('进房率%', 'enterRate', 1, '#06b6d4'),
-      mk('停留(分)', 'stay', 1, '#ec4899'),
-    ]
+    series: METRICS.map(mk)
   });
+  // 最新值胶囊：所选区间最后一天的各项指标，独立小格展示（不受图形位置影响，永不重叠）
+  const lastRow = rows[rows.length - 1];
+  const latestEl = document.getElementById('iplive-latest');
+  if (latestEl) {
+    const fmtLatest = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+    latestEl.innerHTML = '<span class="latest-chip is-label">最新值 · ' + lastRow.date + '</span>'
+      + METRICS.map(m => '<span class="latest-chip"><span class="dot" style="background:' + m[3] + '"></span>'
+        + m[0] + ' <span class="lv">' + fmtLatest(lastRow[m[1]]) + '</span></span>').join('');
+  }
   const th = document.getElementById('iplive-trend-hint');
   if (th) th.innerText = state.ipLivePerson + ' · 当前区间 ' + rows.length + ' 场（' + dMin + ' ~ ' + dMax + '）';
 
-  // 原逐日明细表已合并进上方折线图（可点击图例切换指标、拖动滑块缩放），下方不再单列
+  // 原逐日明细表已合并进上方折线图（可点击图例切换指标）；时间范围由顶部时间筛选控制，图内无缩放滑块，下方不再单列
   if (dailyEl) dailyEl.innerHTML = '';
 }
 

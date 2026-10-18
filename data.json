@@ -3,16 +3,16 @@
   "title": "留资直播间工作台",
   "subtitle": "小风车留资为核心 · 场次可复盘 / 周期可对比 / 账号可拆分 / 投流可算账",
   "source": "钉钉小风车表(场次/线索) + 微信转化xlsx(4-9月赢单) 合并",
-  "generated_at": "2026-10-17 09:13",
+  "generated_at": "2026-10-18 09:07",
   "stats": {
-   "sessions": 1158,
+   "sessions": 1159,
    "hosts": 10,
    "accounts": 3,
    "months": 7,
    "date_min": "2026-04-07",
-   "date_max": "2026-10-16",
-   "leads": 52464,
-   "cost": 2737988.62,
+   "date_max": "2026-10-17",
+   "leads": 52556,
+   "cost": 2743401.64,
    "win_total": 351,
    "amount_total": 11544390.23,
    "win_months_injected": [
@@ -6192,6 +6192,22 @@
    "al": 6,
    "cst": 748.73,
    "du": 90,
+   "win": 0,
+   "amount": 0.0
+  },
+  {
+   "d": "2026-10-17",
+   "h": "波波",
+   "a": "张雪峰团队考研优质讲座",
+   "sl": "18:30-21:40",
+   "e": 178610,
+   "w": 13443,
+   "i": 322,
+   "c": 368,
+   "l": 92,
+   "al": 57,
+   "cst": 5413.02,
+   "du": 190,
    "win": 0,
    "amount": 0.0
   },
@@ -20972,7 +20988,7 @@
    },
    {
     "m": "2026-10",
-    "leads": 2577,
+    "leads": 2669,
     "win": 0,
     "amount": 0
    }
@@ -21331,7 +21347,7 @@
    {
     "m": "2026-10",
     "host": "波波",
-    "leads": 726,
+    "leads": 818,
     "win": 0,
     "amount": 0
    },
@@ -21445,7 +21461,7 @@
    {
     "m": "2026-10",
     "acc": "张雪峰团队考研优质讲座",
-    "leads": 2577,
+    "leads": 2669,
     "win": 0,
     "amount": 0
    }
@@ -21455,7 +21471,7 @@
  },
  "ipLive": {
   "source": "钉钉在线表格「IP 数据总览」(node o14dA3GK8gzy14bKIEqQRQMPJ9ekBD76)，每日 10:00 自动同步",
-  "generated_at": "2026-10-17 09:13",
+  "generated_at": "2026-10-18 09:07",
   "people": {
    "郭剑": {
     "rows": [
@@ -23106,6 +23122,18 @@
       "onlineRange": "7--15",
       "comments": 10,
       "fans": 0
+     },
+     {
+      "date": "2026-10-17",
+      "expo": 2765,
+      "enter": 554,
+      "enterRate": 20.04,
+      "enterRateRaw": 20.0,
+      "stay": 0.8,
+      "follow": 6,
+      "onlineRange": "7--14",
+      "comments": 13,
+      "fans": 1
      }
     ]
    },
